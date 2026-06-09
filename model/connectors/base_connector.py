@@ -98,6 +98,24 @@ class BaseConnector(ABC):
     def _rate_limit(self):
         """Pause between requests to avoid being blocked."""
         time.sleep(self.RATE_LIMIT_SECONDS)
+        
+    CANADIAN_TERMS = [
+        "canada", "ontario", "quebec", "british columbia",
+        "alberta", "manitoba", "saskatchewan", "nova scotia",
+        "toronto", "vancouver", "montreal", "ottawa", "calgary",
+        "hamilton", "mississauga", "brampton", "waterloo",
+        "kitchener", "niagara", "remote", "anywhere"
+    ]
+
+    def _is_relevant(self, location: str) -> bool:
+        """
+        Returns True if job is in Canada or remote.
+        Returns False for US, Europe, Asia, etc.
+        """
+        if not location or location.strip() == "":
+            return True
+        loc = location.lower()
+        return any(term in loc for term in self.CANADIAN_TERMS)
 
     def _clean_text(self, text: str) -> str:
         """Strips whitespace and normalizes None to empty string."""
