@@ -1,0 +1,26 @@
+# Database
+mysql-connector-python==8.3.0
+
+# Job scraping
+python-jobspy==1.1.72
+
+# NLP
+spacy==3.7.4
+
+# Scoring
+scikit-learn==1.4.2
+numpy>=1.26.3
+
+# Dashboard
+streamlit==1.33.0
+plotly==5.20.0
+
+# Utilities
+python-dotenv==1.0.1
+pyyaml==6.0.1
+requests==2.31.0
+thefuzz==0.22.1
+
+# Testing
+pytest==8.1.2
+pytest-mock==3.14.0
