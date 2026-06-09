@@ -1,0 +1,696 @@
+
+<style>
+  h2.sr-only { position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-size: 14px; }
+
+  .page { padding: 16px 0; }
+
+  /* Epic pills */
+  .epic { display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;margin-bottom:12px; }
+  .epic-blue   { background:var(--color-background-info);    color:var(--color-text-info); }
+  .epic-teal   { background:#E1F5EE; color:#0F6E56; }
+  .epic-amber  { background:#FAEEDA; color:#854F0B; }
+  .epic-purple { background:#EEEDFE; color:#534AB7; }
+  .epic-gray   { background:var(--color-background-secondary); color:var(--color-text-secondary); }
+
+  /* Sprint header */
+  .sprint-header {
+    display:flex; align-items:center; gap:10px;
+    padding: 10px 14px;
+    border-radius: var(--border-radius-md);
+    border: 1px solid var(--color-border-tertiary);
+    background: var(--color-background-secondary);
+    margin-bottom: 10px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .sprint-header:hover { background: var(--color-background-tertiary); }
+  .sprint-num { font-size: 11px; font-weight: 500; color: var(--color-text-secondary); min-width:60px; }
+  .sprint-title { font-size: 14px; font-weight: 500; color: var(--color-text-primary); flex:1; }
+  .sprint-meta { font-size: 12px; color: var(--color-text-secondary); }
+  .sprint-chevron { font-size: 12px; color: var(--color-text-tertiary); transition: transform .2s; }
+  .sprint-chevron.open { transform: rotate(180deg); }
+
+  /* Story card */
+  .story-list { display:flex; flex-direction:column; gap:8px; margin-bottom:16px; padding-left:8px; }
+  .story-card {
+    border: 1px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-lg);
+    padding: 12px 14px;
+    background: var(--color-background-primary);
+  }
+  .story-top { display:flex; align-items:flex-start; gap:10px; margin-bottom:8px; }
+  .story-id { font-size:11px; font-weight:500; color:var(--color-text-tertiary); min-width:42px; padding-top:1px; }
+  .story-text { font-size:13px; color:var(--color-text-primary); line-height:1.5; flex:1; }
+  .story-text strong { font-weight:500; }
+  .story-bottom { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding-left:52px; }
+
+  /* Points badge */
+  .pts { display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:500;padding:2px 7px;border-radius:12px;background:var(--color-background-secondary);color:var(--color-text-secondary); }
+
+  /* Acceptance criteria toggle */
+  .ac-toggle { font-size:11px;color:var(--color-text-info);cursor:pointer;border:none;background:none;padding:0; }
+  .ac-toggle:hover { text-decoration:underline; }
+  .ac-list { margin-top:8px; padding-left:52px; display:none; }
+  .ac-list.open { display:block; }
+  .ac-list ul { list-style:none; display:flex;flex-direction:column;gap:4px; }
+  .ac-list li { font-size:12px; color:var(--color-text-secondary); line-height:1.4; padding-left:14px; position:relative; }
+  .ac-list li::before { content:"✓"; position:absolute;left:0;color:var(--color-text-success);font-size:11px; }
+
+  /* Sprint summary bar */
+  .sprint-summary { display:flex;gap:12px;flex-wrap:wrap;padding:8px 14px;border-radius:var(--border-radius-md);background:var(--color-background-secondary);margin-bottom:16px;font-size:12px;color:var(--color-text-secondary); }
+  .sprint-summary span strong { font-weight:500;color:var(--color-text-primary); }
+
+  /* Total row */
+  .total-bar { display:flex;gap:16px;flex-wrap:wrap;padding:10px 14px;border-radius:var(--border-radius-md);border:1px solid var(--color-border-secondary);font-size:13px; }
+  .total-bar span { color:var(--color-text-secondary); }
+  .total-bar span strong { color:var(--color-text-primary);font-weight:500; }
+</style>
+
+<div class="page">
+  <h2 class="sr-only">Job pipeline project — user stories and sprint plan for Phase 1</h2>
+
+  <!-- ═══ EPICS LEGEND ═══ -->
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px">
+    <div class="epic epic-blue"><i class="ti ti-database" aria-hidden="true"></i> E1 · Data ingestion</div>
+    <div class="epic epic-teal"><i class="ti ti-cpu" aria-hidden="true"></i> E2 · Scoring engine</div>
+    <div class="epic epic-amber"><i class="ti ti-layout-dashboard" aria-hidden="true"></i> E3 · Dashboard</div>
+    <div class="epic epic-purple"><i class="ti ti-settings" aria-hidden="true"></i> E4 · Configuration</div>
+    <div class="epic epic-gray"><i class="ti ti-shield-check" aria-hidden="true"></i> E5 · Quality & infra</div>
+  </div>
+
+  <!-- ═══ SPRINT 0 ═══ -->
+  <div class="sprint-header" onclick="toggleSprint('s0')">
+    <span class="sprint-num">Sprint 0</span>
+    <span class="sprint-title">Foundation — project setup, schema, base connector</span>
+    <span class="sprint-meta">1 week · 13 pts</span>
+    <span class="sprint-chevron open" id="chev-s0">▾</span>
+  </div>
+  <div id="s0">
+    <div class="sprint-summary">
+      <span><strong>Goal:</strong> repo running, DB up, one connector working end-to-end</span>
+      <span><strong>Definition of done:</strong> Job Bank returns data and saves to PostgreSQL</span>
+    </div>
+    <div class="story-list">
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-01</span>
+          <span class="story-text"><strong>As a developer</strong> I want a GitHub repo with the MVC directory structure so that the project has a clean foundation from day one.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-gray" style="margin:0">E5</div>
+          <span class="pts">2 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac01')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac01">
+          <ul>
+            <li>Repo created with model / controller / view / config / tests folders</li>
+            <li>.gitignore excludes .env, __pycache__, *.pyc, secrets.yaml</li>
+            <li>requirements.txt contains all dependencies pinned to version</li>
+            <li>Makefile has make init, make run, make test, make dashboard targets</li>
+            <li>README.md has project description and setup instructions</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-02</span>
+          <span class="story-text"><strong>As a developer</strong> I want a PostgreSQL schema with the jobs table so that all sources store data in a unified structure.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-blue" style="margin:0">E1</div>
+          <span class="pts">2 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac02')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac02">
+          <ul>
+            <li>schema.sql creates jobs table with all fields: id, source, title, company, location, salary_min, salary_max, description, url, date_posted, date_ingested, score_total, score_technical, score_seniority, score_industry, score_location, flag_french_required, status</li>
+            <li>Unique index on (title, company, location) for deduplication</li>
+            <li>make init runs schema.sql and creates the DB</li>
+            <li>db_connection.py returns a reusable psycopg2 connection</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-03</span>
+          <span class="story-text"><strong>As a developer</strong> I want a Job dataclass and base connector abstract class so that all six connectors share the same interface.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-blue" style="margin:0">E1</div>
+          <span class="pts">3 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac03')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac03">
+          <ul>
+            <li>Job dataclass has all schema fields with types and defaults</li>
+            <li>Job.validate() raises ValueError on missing required fields</li>
+            <li>BaseConnector defines abstract fetch() and normalize() methods</li>
+            <li>BaseConnector implements rate_limit() with configurable delay</li>
+            <li>BaseConnector implements retry() with exponential backoff</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-04</span>
+          <span class="story-text"><strong>As Wilson</strong> I want the Job Bank Canada connector working so that I have a verified baseline of official Canadian job postings.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-blue" style="margin:0">E1</div>
+          <span class="pts">3 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac04')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac04">
+          <ul>
+            <li>jobbank.py extends BaseConnector and implements fetch() and normalize()</li>
+            <li>Accepts keywords and location as parameters</li>
+            <li>Returns list of Job objects with all fields populated where available</li>
+            <li>Handles pagination — fetches up to configured max_results</li>
+            <li>Unit test with fixture passes without hitting the live API</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-05</span>
+          <span class="story-text"><strong>As a developer</strong> I want a job repository with save and deduplicate so that duplicate listings across sources are not stored twice.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-blue" style="margin:0">E1</div>
+          <span class="pts">3 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac05')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac05">
+          <ul>
+            <li>job_repository.save() uses INSERT ON CONFLICT DO NOTHING</li>
+            <li>deduplicator.py generates a hash from title + company + location (lowercased, stripped)</li>
+            <li>Running the same source twice does not create duplicate rows</li>
+            <li>job_repository.find_by_score() returns jobs ordered by score_total desc</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══ SPRINT 1 ═══ -->
+  <div class="sprint-header" onclick="toggleSprint('s1')">
+    <span class="sprint-num">Sprint 1</span>
+    <span class="sprint-title">All six connectors + parallel pipeline</span>
+    <span class="sprint-meta">1 week · 18 pts</span>
+    <span class="sprint-chevron open" id="chev-s1">▾</span>
+  </div>
+  <div id="s1">
+    <div class="sprint-summary">
+      <span><strong>Goal:</strong> all sources fetching and saving in one make run command</span>
+      <span><strong>Definition of done:</strong> 100+ real jobs in PostgreSQL from 6 sources</span>
+    </div>
+    <div class="story-list">
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-06</span>
+          <span class="story-text"><strong>As Wilson</strong> I want Adzuna and Jooble connectors so that I have API-sourced coverage of the broader Canadian market.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-blue" style="margin:0">E1</div>
+          <span class="pts">4 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac06')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac06">
+          <ul>
+            <li>adzuna.py and jooble.py each extend BaseConnector</li>
+            <li>API keys loaded from .env — never hardcoded</li>
+            <li>Both normalize salary fields to salary_min / salary_max integers where available</li>
+            <li>Both handle API rate limit responses with retry backoff</li>
+            <li>Unit tests with fixture data pass for both</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-07</span>
+          <span class="story-text"><strong>As Wilson</strong> I want RemoteOK, LinkedIn, and Indeed connectors so that remote roles and the two largest job boards are included.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-blue" style="margin:0">E1</div>
+          <span class="pts">5 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac07')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac07">
+          <ul>
+            <li>remoteok.py calls public JSON API — no key required</li>
+            <li>linkedin.py and indeed.py use jobspy with configurable search terms and location</li>
+            <li>All three normalize to the Job schema</li>
+            <li>Request rate limited — minimum 2s delay between calls to avoid blocking</li>
+            <li>Graceful fallback if jobspy returns empty — logs warning, does not crash pipeline</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-08</span>
+          <span class="story-text"><strong>As Wilson</strong> I want a pipeline orchestrator that runs all six sources in parallel so that a full ingestion run completes in under 2 minutes.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-blue" style="margin:0">E1</div>
+          <span class="pts">5 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac08')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac08">
+          <ul>
+            <li>pipeline.py uses concurrent.futures.ThreadPoolExecutor to run connectors in parallel</li>
+            <li>Each source runs independently — failure of one does not block others</li>
+            <li>Pipeline logs: source name, jobs fetched, jobs saved, jobs deduplicated, elapsed time</li>
+            <li>make run triggers pipeline.py with default keywords from settings.yaml</li>
+            <li>Full run of 6 sources completes in under 2 minutes on local machine</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-09</span>
+          <span class="story-text"><strong>As a developer</strong> I want the pipeline to accept keyword and location arguments so that I can target specific roles and cities.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-blue" style="margin:0">E1</div>
+          <span class="pts">2 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac09')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac09">
+          <ul>
+            <li>pipeline.py accepts --keywords and --location CLI arguments via argparse</li>
+            <li>Defaults loaded from settings.yaml if no arguments provided</li>
+            <li>Multiple keywords supported as comma-separated string</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-10</span>
+          <span class="story-text"><strong>As a developer</strong> I want cross-source deduplication so that the same job appearing on LinkedIn and Indeed is stored once.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-blue" style="margin:0">E1</div>
+          <span class="pts">2 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac10')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac10">
+          <ul>
+            <li>deduplicator checks existing DB records before insert using the hash key</li>
+            <li>Fuzzy match threshold configurable in settings.yaml (default 90% similarity)</li>
+            <li>Pipeline log reports deduplicated count per run</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══ SPRINT 2 ═══ -->
+  <div class="sprint-header" onclick="toggleSprint('s2')">
+    <span class="sprint-num">Sprint 2</span>
+    <span class="sprint-title">NLP processing + scoring engine</span>
+    <span class="sprint-meta">1 week · 21 pts</span>
+    <span class="sprint-chevron open" id="chev-s2">▾</span>
+  </div>
+  <div id="s2">
+    <div class="sprint-summary">
+      <span><strong>Goal:</strong> every job in DB has a fitness score against Wilson's profile</span>
+      <span><strong>Definition of done:</strong> score_total populated for all jobs, French flag working</span>
+    </div>
+    <div class="story-list">
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-11</span>
+          <span class="story-text"><strong>As Wilson</strong> I want a profile.yaml where I define my skills, target titles, industries, and locations so that the scoring engine uses my actual profile.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-purple" style="margin:0">E4</div>
+          <span class="pts">2 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac11')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac11">
+          <ul>
+            <li>profile.yaml has sections: target_titles, skills, industries, locations, seniority_keywords, exclusions, weights</li>
+            <li>weights section controls relative importance of each score dimension (must sum to 1.0)</li>
+            <li>exclusions list contains terms that automatically set score to 0 (e.g. "French required")</li>
+            <li>profile_loader.py validates YAML schema on load and raises clear error on missing fields</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-12</span>
+          <span class="story-text"><strong>As Wilson</strong> I want the NLP processor to extract skills and flag French-required roles so that I can filter out roles I cannot apply to.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-teal" style="margin:0">E2</div>
+          <span class="pts">5 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac12')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac12">
+          <ul>
+            <li>nlp_processor.py uses spaCy en_core_web_sm model</li>
+            <li>extract_skills() returns list of matched skills from a curated tech vocabulary</li>
+            <li>detect_french() sets flag_french_required=True if JD contains "French required", "bilingual", "français" or similar patterns</li>
+            <li>detect_seniority() returns: junior / mid / senior / manager / director</li>
+            <li>extract_salary() parses salary ranges from free text when not provided as structured fields</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-13</span>
+          <span class="story-text"><strong>As Wilson</strong> I want a scoring engine that gives each job a fitness percentage against my profile so that I can prioritize which roles to pursue.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-teal" style="margin:0">E2</div>
+          <span class="pts">8 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac13')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac13">
+          <ul>
+            <li>scoring_engine.py uses TF-IDF vectorization + cosine similarity between JD and profile skills corpus</li>
+            <li>score_technical: skill overlap between extracted JD skills and profile skills (0–100)</li>
+            <li>score_seniority: match between detected JD seniority and profile target seniority (0–100)</li>
+            <li>score_industry: keyword match between JD and profile industries (0–100)</li>
+            <li>score_location: exact + fuzzy match on city/province (0–100)</li>
+            <li>score_total: weighted average using profile.yaml weights</li>
+            <li>French-required roles get score_total capped at 40 unless French is in profile skills</li>
+            <li>Scores updated in DB after every pipeline run</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-14</span>
+          <span class="story-text"><strong>As a developer</strong> I want the scoring engine to re-score all jobs when profile.yaml changes so that updating my profile immediately reflects in rankings.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-teal" style="margin:0">E2</div>
+          <span class="pts">3 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac14')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac14">
+          <ul>
+            <li>make rescore command triggers re-scoring of all jobs in DB without re-fetching sources</li>
+            <li>Batch re-score processes 100 jobs at a time to avoid memory issues</li>
+            <li>Logs total jobs re-scored and elapsed time</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-15</span>
+          <span class="story-text"><strong>As Wilson</strong> I want unit tests for the scoring engine with known inputs so that I can trust the fitness scores are calculated correctly.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-gray" style="margin:0">E5</div>
+          <span class="pts">3 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac15')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac15">
+          <ul>
+            <li>test_scoring.py has at least 5 test cases with fixture JDs and known expected scores</li>
+            <li>Tests cover: perfect match, zero match, French flag cap, seniority mismatch, partial skill overlap</li>
+            <li>make test runs all tests and exits 0 on pass</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══ SPRINT 3 ═══ -->
+  <div class="sprint-header" onclick="toggleSprint('s3')">
+    <span class="sprint-num">Sprint 3</span>
+    <span class="sprint-title">Streamlit dashboard — core view</span>
+    <span class="sprint-meta">1 week · 20 pts</span>
+    <span class="sprint-chevron open" id="chev-s3">▾</span>
+  </div>
+  <div id="s3">
+    <div class="sprint-summary">
+      <span><strong>Goal:</strong> usable dashboard showing ranked jobs with filters and direct links</span>
+      <span><strong>Definition of done:</strong> Wilson can run make dashboard and find a job to apply to in under 5 minutes</span>
+    </div>
+    <div class="story-list">
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-16</span>
+          <span class="story-text"><strong>As Wilson</strong> I want a ranked jobs table showing title, company, location, score, salary, source, and date so that I can scan all opportunities at a glance.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-amber" style="margin:0">E3</div>
+          <span class="pts">5 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac16')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac16">
+          <ul>
+            <li>dashboard.py renders st.dataframe with columns: title, company, location, score_total (%), salary range, source, date_posted</li>
+            <li>Default sort: score_total descending</li>
+            <li>Score column shows colored badge: green ≥75, amber 50–74, red &lt;50</li>
+            <li>French-required roles show 🇫🇷 flag indicator</li>
+            <li>Table is clickable — selecting a row navigates to job_detail page</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-17</span>
+          <span class="story-text"><strong>As Wilson</strong> I want a filter sidebar so that I can narrow the table by minimum score, source, city, and date range.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-amber" style="margin:0">E3</div>
+          <span class="pts">4 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac17')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac17">
+          <ul>
+            <li>filter_panel.py renders in st.sidebar with: score slider (0–100), source multiselect, location multiselect, date range picker, hide French-required toggle</li>
+            <li>Filters apply immediately without page reload</li>
+            <li>Filter state persists during the session</li>
+            <li>Job count updates dynamically as filters change</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-18</span>
+          <span class="story-text"><strong>As Wilson</strong> I want a job detail page showing the full JD, score breakdown, and a direct apply link so that I can evaluate and act on a role without leaving the dashboard.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-amber" style="margin:0">E3</div>
+          <span class="pts">5 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac18')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac18">
+          <ul>
+            <li>job_detail.py shows: full job description, score breakdown bar chart by dimension, extracted skills matched vs missing, salary, company, date posted</li>
+            <li>Direct link button opens original posting URL in new tab</li>
+            <li>Status buttons: Mark as Reviewed / Mark as Applied / Reject — updates DB status field</li>
+            <li>Back button returns to filtered dashboard without losing filter state</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-19</span>
+          <span class="story-text"><strong>As Wilson</strong> I want a "Run pipeline now" button in the dashboard so that I can trigger a fresh ingestion without opening a terminal.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-amber" style="margin:0">E3</div>
+          <span class="pts">3 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac19')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac19">
+          <ul>
+            <li>Sidebar shows "Run pipeline" button with last run timestamp</li>
+            <li>Button triggers pipeline.py via subprocess and shows a spinner while running</li>
+            <li>On completion shows: new jobs added, duplicates skipped, sources that failed</li>
+            <li>Table refreshes automatically after pipeline completes</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-20</span>
+          <span class="story-text"><strong>As Wilson</strong> I want a summary header showing total jobs, new today, average score, and applied count so that I can see pipeline health at a glance.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-amber" style="margin:0">E3</div>
+          <span class="pts">3 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac20')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac20">
+          <ul>
+            <li>Header row shows 4 st.metric cards: Total jobs, New today, Avg score, Applied</li>
+            <li>Metrics update in real time as filters change</li>
+            <li>New today counts jobs with date_ingested = today</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══ SPRINT 4 ═══ -->
+  <div class="sprint-header" onclick="toggleSprint('s4')">
+    <span class="sprint-num">Sprint 4</span>
+    <span class="sprint-title">Analytics page + profile editor + polish</span>
+    <span class="sprint-meta">1 week · 16 pts</span>
+    <span class="sprint-chevron open" id="chev-s4">▾</span>
+  </div>
+  <div id="s4">
+    <div class="sprint-summary">
+      <span><strong>Goal:</strong> portfolio-ready showcase with analytics, editable profile, and clean README</span>
+      <span><strong>Definition of done:</strong> shareable demo link on Streamlit Cloud</span>
+    </div>
+    <div class="story-list">
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-21</span>
+          <span class="story-text"><strong>As Wilson</strong> I want an analytics page showing top demanded skills, jobs by city, and score distribution so that I can see market intelligence beyond my own applications.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-amber" style="margin:0">E3</div>
+          <span class="pts">5 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac21')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac21">
+          <ul>
+            <li>analytics.py shows: bar chart of top 20 skills across all JDs, jobs by city (bar chart), score distribution histogram, jobs by source pie chart</li>
+            <li>All charts use Plotly via st.plotly_chart for interactivity</li>
+            <li>Date range filter applies to all analytics charts</li>
+            <li>Charts are clean enough to screenshot for portfolio</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-22</span>
+          <span class="story-text"><strong>As Wilson</strong> I want a profile editor page in the UI so that I can update my skills and weights without editing YAML manually.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-purple" style="margin:0">E4</div>
+          <span class="pts">4 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac22')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac22">
+          <ul>
+            <li>profile_config.py renders editable fields for: target titles, skills list, locations, seniority, dimension weights</li>
+            <li>Save button writes changes back to profile.yaml</li>
+            <li>Rescore button triggers make rescore after saving</li>
+            <li>Validation prevents weights from summing to more than 1.0</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-23</span>
+          <span class="story-text"><strong>As Wilson</strong> I want the project deployed on Streamlit Cloud so that I can share a live demo URL in job applications and interviews.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-gray" style="margin:0">E5</div>
+          <span class="pts">3 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac23')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac23">
+          <ul>
+            <li>App deploys successfully to Streamlit Cloud from GitHub repo</li>
+            <li>Secrets managed via Streamlit Cloud secrets, not committed to repo</li>
+            <li>Demo mode uses a static snapshot DB so live scraping is not required on the cloud</li>
+            <li>Public URL accessible without login</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-24</span>
+          <span class="story-text"><strong>As Wilson</strong> I want a polished README with architecture diagram, screenshots, and setup instructions so that any hiring manager who opens the repo understands the project immediately.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-gray" style="margin:0">E5</div>
+          <span class="pts">2 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac24')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac24">
+          <ul>
+            <li>README includes: project purpose, architecture diagram, tech stack badges, setup instructions, screenshot of dashboard, live demo link</li>
+            <li>Setup instructions runnable in under 10 minutes on a clean machine</li>
+            <li>No hardcoded credentials anywhere in the repo</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="story-card">
+        <div class="story-top">
+          <span class="story-id">US-25</span>
+          <span class="story-text"><strong>As a developer</strong> I want error handling and logging across all components so that failures are diagnosable and the pipeline never crashes silently.</span>
+        </div>
+        <div class="story-bottom">
+          <div class="epic epic-gray" style="margin:0">E5</div>
+          <span class="pts">2 pts</span>
+          <button class="ac-toggle" onclick="toggleAC('ac25')">acceptance criteria ▾</button>
+        </div>
+        <div class="ac-list" id="ac25">
+          <ul>
+            <li>Python logging configured at INFO level with file output to logs/pipeline.log</li>
+            <li>All connector failures caught and logged — pipeline continues with remaining sources</li>
+            <li>DB connection errors surface a clear message in the Streamlit UI</li>
+            <li>All exceptions have context (source name, job URL) in the log message</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══ TOTAL ═══ -->
+  <div class="total-bar" style="margin-top:8px">
+    <span><strong>5 sprints</strong></span>
+    <span><strong>25 user stories</strong></span>
+    <span><strong>88 story points</strong></span>
+    <span><strong>~5 weeks</strong> at 1 week per sprint</span>
+    <span><strong>Phase 1 complete</strong> — portfolio-ready + Streamlit Cloud deployed</span>
+  </div>
+</div>
+
+<script>
+function toggleSprint(id) {
+  const el = document.getElementById(id);
+  const chev = document.getElementById('chev-' + id);
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : 'block';
+  chev.classList.toggle('open', !open);
+}
+function toggleAC(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('open');
+}
+</script>

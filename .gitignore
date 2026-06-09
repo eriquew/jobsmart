@@ -1,0 +1,27 @@
+# Secrets — nunca subir a GitHub
+.env
+.streamlit/secrets.toml
+secrets.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Conda / venv
+venv/
+
+# Logs
+logs/*.log
+
+# Database backups
+*.sql.bak
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
