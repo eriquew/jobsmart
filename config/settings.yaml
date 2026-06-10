@@ -1,0 +1,95 @@
+# JobSmart Pipeline Settings
+# Edit this file to control pipeline behavior
+
+pipeline:
+  max_results_per_source: 25
+  parallel_workers: 5
+
+# Search configuration per source
+# Each source has optimized keywords for better results
+search:
+  default_location: "Ontario Canada"
+
+  # Keywords optimized per source
+  # LinkedIn and Indeed work best with short focused terms
+  # Jooble and Adzuna work better with single keyword
+  sources:
+    linkedin:
+      keywords:
+        - "solutions architect"
+        - "presales engineer"
+        - "network architect"
+        - "cloud architect"
+      location: "Ontario Canada"
+      max_results: 25
+
+    indeed:
+      keywords:
+        - "solutions architect"
+        - "presales engineer"
+        - "network architect"
+        - "AI architect"
+      location: "Ontario Canada"
+      max_results: 25
+
+    jooble:
+      keywords:
+        - "solutions architect"
+        - "presales engineer"
+        - "network architect"
+      location: "Ontario Canada"
+      max_results: 15
+
+    adzuna:
+      keywords:
+        - "solutions architect"
+        - "presales engineer"
+        - "network architect"
+      location: "Ontario"
+      max_results: 15
+
+    remoteok:
+      keywords:
+        - "architect"
+        - "presales"
+        - "network engineer"
+      location: "Remote"
+      max_results: 10
+
+# Sources enabled/disabled
+  active_sources:
+    linkedin:  true
+    indeed:    true
+    jooble:    true
+    adzuna:    true
+    remoteok:  true
+    glassdoor: false   # disabled — jobspy 400 error pending fix
+
+# Scoring thresholds
+scoring:
+  min_score_to_display: 30
+  high_score_threshold: 75
+  medium_score_threshold: 50
+
+# Location filter
+location_filter:
+  canadian_terms:
+    - "canada"
+    - "ontario"
+    - "quebec"
+    - "british columbia"
+    - "alberta"
+    - "toronto"
+    - "vancouver"
+    - "montreal"
+    - "ottawa"
+    - "calgary"
+    - "hamilton"
+    - "mississauga"
+    - "brampton"
+    - "waterloo"
+    - "kitchener"
+    - "niagara"
+    - "burlington"
+    - "remote"
+    - "anywhere"

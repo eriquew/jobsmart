@@ -1,0 +1,151 @@
+# Wilson Erique — Professional Profile
+# This file drives the scoring engine
+# Edit weights and skills to tune your results
+
+personal:
+  name: "Wilson Erique"
+  location: "Niagara Falls, ON"
+  target_locations:
+    - "ontario"
+    - "toronto"
+    - "hamilton"
+    - "niagara"
+    - "burlington"
+    - "mississauga"
+    - "remote"
+
+# Target job titles — exact and partial matches
+target_titles:
+  high_priority:
+    - "solutions architect"
+    - "presales architect"
+    - "presales engineer"
+    - "pre-sales architect"
+    - "pre-sales engineer"
+    - "customer solutions architect"
+    - "senior solutions architect"
+    - "principal solutions architect"
+  medium_priority:
+    - "network architect"
+    - "cloud architect"
+    - "enterprise architect"
+    - "technical architect"
+    - "AI architect"
+    - "infrastructure architect"
+    - "senior network engineer"
+    - "technical account manager"
+    - "sales engineer"
+
+# Technical skills — weighted by expertise level
+skills:
+  expert:
+    - "BGP"
+    - "MPLS"
+    - "CCIE"
+    - "cisco"
+    - "fortinet"
+    - "palo alto"
+    - "SD-WAN"
+    - "IPSEC"
+    - "VPN"
+    - "network architecture"
+    - "presales"
+    - "pre-sales"
+    - "solution design"
+    - "RFP"
+    - "TOGAF"
+
+  proficient:
+    - "Azure"
+    - "Microsoft 365"
+    - "M365"
+    - "cloud architecture"
+    - "enterprise architecture"
+    - "security architecture"
+    - "firewall"
+    - "zero trust"
+    - "ZTNA"
+    - "SASE"
+    - "VMware"
+    - "Hyper-V"
+    - "Active Directory"
+    - "Entra ID"
+    - "identity"
+    - "SIP"
+    - "VoIP"
+    - "unified communications"
+    - "Webex"
+
+  developing:
+    - "Python"
+    - "AI"
+    - "machine learning"
+    - "GCP"
+    - "AWS"
+    - "LangChain"
+    - "RAG"
+    - "MLOps"
+    - "data analytics"
+    - "LLM"
+    - "automation"
+    - "API"
+    - "REST"
+
+# Industries — where you have domain experience
+industries:
+  strong:
+    - "telecom"
+    - "telecommunications"
+    - "networking"
+    - "service provider"
+    - "carrier"
+    - "mining"
+    - "port"
+    - "industrial"
+    - "energy"
+    - "financial services"
+    - "banking"
+
+  familiar:
+    - "healthcare"
+    - "government"
+    - "education"
+    - "higher education"
+    - "manufacturing"
+    - "logistics"
+
+# Seniority targets
+seniority:
+  target_levels:
+    - "senior"
+    - "principal"
+    - "lead"
+    - "manager"
+    - "director"
+    - "architect"
+  exclude_levels:
+    - "junior"
+    - "entry level"
+    - "intern"
+    - "co-op"
+    - "student"
+
+# Automatic exclusions — roles that score 0
+exclusions:
+  hard_exclude:
+    - "french required"
+    - "bilingual french"
+    - "français exigé"
+    - "fully bilingual"
+  soft_exclude:
+    - "relocation required"
+    - "security clearance"
+    - "top secret"
+
+# Scoring weights — must sum to 1.0
+weights:
+  technical:  0.40    # skill match weight
+  seniority:  0.20    # seniority level match
+  industry:   0.15    # industry domain match
+  location:   0.20    # location match
+  title:      0.05    # title keyword match
