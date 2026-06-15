@@ -10,13 +10,17 @@ logger = logging.getLogger(__name__)
 
 class JobRepository:
     """
-    Handles all database operations for Job objects.
-    Single responsibility: read and write jobs to MySQL.
+    Handles all database operations for jobs.
+    - jobs table: shared across all users
+    - job_scores table: per user scoring
+    - job_tracking table: per user status tracking
     """
+
+    # ── SAVE JOBS (shared) ─────────────────────────────────
 
     def save(self, job: Job) -> bool:
         """
-        Inserts a job into the database.
+        Inserts a job into the shared jobs table.
         Skips silently if dedup_hash already exists.
         Returns True if inserted, False if duplicate.
         """
@@ -25,24 +29,19 @@ class JobRepository:
                 source, title, company, location,
                 salary_min, salary_max, currency,
                 description, url, date_posted,
-                score_total, score_technical,
-                score_seniority, score_industry,
-                score_location, flag_french_required,
-                extracted_skills, status, dedup_hash
+                dedup_hash
             ) VALUES (
                 %(source)s, %(title)s, %(company)s, %(location)s,
                 %(salary_min)s, %(salary_max)s, %(currency)s,
                 %(description)s, %(url)s, %(date_posted)s,
-                %(score_total)s, %(score_technical)s,
-                %(score_seniority)s, %(score_industry)s,
-                %(score_location)s, %(flag_french_required)s,
-                %(extracted_skills)s, %(status)s, %(dedup_hash)s
+                %(dedup_hash)s
             )
         """
         try:
-            conn = get_db()
+            conn   = get_db()
             cursor = conn.cursor(buffered=True)
-            cursor.execute(sql, job.to_dict())
+            data   = job.to_dict()
+            cursor.execute(sql, data)
             conn.commit()
             inserted = cursor.rowcount > 0
             cursor.close()
@@ -60,8 +59,8 @@ class JobRepository:
 
     def save_many(self, jobs: List[Job]) -> dict:
         """
-        Saves a list of jobs.
-        Returns summary: {saved, duplicates, errors}
+        Saves a list of jobs to shared jobs table.
+        Returns summary: saved, duplicates, errors.
         """
         saved = duplicates = errors = 0
 
@@ -82,97 +81,185 @@ class JobRepository:
         )
         return {"saved": saved, "duplicates": duplicates, "errors": errors}
 
-    def find_by_score(self, min_score: float = 0.0,
-                      limit: int = 100) -> List[dict]:
+    # ── SCORES (per user) ──────────────────────────────────
+
+    def update_scores(self, job_id: int, user_id: int,
+                      scores: dict) -> bool:
         """
-        Returns jobs ordered by score_total descending.
-        Used by the dashboard to display ranked results.
+        Upserts scoring data for a specific user and job.
+        Uses INSERT ... ON DUPLICATE KEY UPDATE for efficiency.
         """
         sql = """
-            SELECT id, source, title, company, location,
-                   salary_min, salary_max, currency,
-                   url, date_posted, date_ingested,
-                   score_total, score_technical,
-                   score_seniority, score_industry,
-                   score_location, flag_french_required,
-                   extracted_skills, status
-            FROM jobs
-            WHERE score_total >= %s
-            ORDER BY score_total DESC
-            LIMIT %s
+            INSERT INTO job_scores (
+                job_id, user_id,
+                score_total, score_technical, score_seniority,
+                score_industry, score_location,
+                flag_french_required, extracted_skills
+            ) VALUES (
+                %(job_id)s, %(user_id)s,
+                %(score_total)s, %(score_technical)s, %(score_seniority)s,
+                %(score_industry)s, %(score_location)s,
+                %(flag_french_required)s, %(extracted_skills)s
+            )
+            ON DUPLICATE KEY UPDATE
+                score_total          = VALUES(score_total),
+                score_technical      = VALUES(score_technical),
+                score_seniority      = VALUES(score_seniority),
+                score_industry       = VALUES(score_industry),
+                score_location       = VALUES(score_location),
+                flag_french_required = VALUES(flag_french_required),
+                extracted_skills     = VALUES(extracted_skills),
+                scored_at            = CURRENT_TIMESTAMP
         """
         try:
-            conn = get_db()
-            cursor = conn.cursor(dictionary=True, buffered=True)
-            cursor.execute(sql, (min_score, limit))
-            results = cursor.fetchall()
-            cursor.close()
-            return results
-        except Error as e:
-            logger.error(f"Error fetching jobs: {e}")
-            return []
-
-    def update_status(self, job_id: int, status: str) -> bool:
-        """Updates the application status of a job."""
-        valid = {"new", "reviewed", "applied", "interview", "rejected"}
-        if status not in valid:
-            logger.error(f"Invalid status: {status}")
-            return False
-
-        sql = "UPDATE jobs SET status = %s WHERE id = %s"
-        try:
-            conn = get_db()
+            conn   = get_db()
             cursor = conn.cursor(buffered=True)
-            cursor.execute(sql, (status, job_id))
-            conn.commit()
-            cursor.close()
-            return True
-        except Error as e:
-            logger.error(f"Error updating status: {e}")
-            return False
-
-    def update_scores(self, job_id: int, scores: dict) -> bool:
-        """Updates scoring fields for a job — used by scoring engine."""
-        sql = """
-            UPDATE jobs SET
-                score_total      = %(score_total)s,
-                score_technical  = %(score_technical)s,
-                score_seniority  = %(score_seniority)s,
-                score_industry   = %(score_industry)s,
-                score_location   = %(score_location)s,
-                flag_french_required = %(flag_french_required)s,
-                extracted_skills = %(extracted_skills)s
-            WHERE id = %(id)s
-        """
-        try:
-            conn = get_db()
-            cursor = conn.cursor(buffered=True)
-            scores["id"] = job_id
+            scores["job_id"]  = job_id
+            scores["user_id"] = user_id
             cursor.execute(sql, scores)
             conn.commit()
             cursor.close()
             return True
         except Error as e:
-            logger.error(f"Error updating scores: {e}")
+            logger.error(f"Error updating scores job {job_id} user {user_id}: {e}")
             return False
 
-    def count(self) -> dict:
-        """Returns counts by status — used by dashboard header."""
+    # ── TRACKING (per user) ────────────────────────────────
+
+    def update_status(self, job_id: int, user_id: int,
+                      status: str, notes: str = None) -> bool:
+        """
+        Upserts application status for a specific user and job.
+        """
+        valid = {"new", "reviewed", "applied", "interview", "rejected"}
+        if status not in valid:
+            logger.error(f"Invalid status: {status}")
+            return False
+
         sql = """
-            SELECT
-                COUNT(*)                            AS total,
-                SUM(status = 'new')                 AS new_jobs,
-                SUM(status = 'applied')             AS applied,
-                SUM(DATE(date_ingested) = CURDATE()) AS today
-            FROM jobs
+            INSERT INTO job_tracking (job_id, user_id, status, notes)
+            VALUES (%s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+                status     = VALUES(status),
+                notes      = VALUES(notes),
+                updated_at = CURRENT_TIMESTAMP
         """
         try:
-            conn = get_db()
-            cursor = conn.cursor(dictionary=True)
-            cursor.execute(sql)
+            conn   = get_db()
+            cursor = conn.cursor(buffered=True)
+            cursor.execute(sql, (job_id, user_id, status, notes))
+            conn.commit()
+            cursor.close()
+            return True
+        except Error as e:
+            logger.error(f"Error updating status job {job_id} user {user_id}: {e}")
+            return False
+
+    # ── QUERIES ────────────────────────────────────────────
+
+    def find_by_score(self, user_id: int,
+                      min_score: float = 0.0,
+                      limit: int = 200) -> List[dict]:
+        """
+        Returns jobs ranked by score for a specific user.
+        JOINs jobs + job_scores + job_tracking.
+        """
+        sql = """
+            SELECT
+                j.id, j.source, j.title, j.company, j.location,
+                j.salary_min, j.salary_max, j.currency,
+                j.url, j.date_posted, j.date_ingested,
+                COALESCE(s.score_total, 0)          AS score_total,
+                COALESCE(s.score_technical, 0)      AS score_technical,
+                COALESCE(s.score_seniority, 0)      AS score_seniority,
+                COALESCE(s.score_industry, 0)       AS score_industry,
+                COALESCE(s.score_location, 0)       AS score_location,
+                COALESCE(s.flag_french_required, 0) AS flag_french_required,
+                COALESCE(s.extracted_skills, '')    AS extracted_skills,
+                COALESCE(t.status, 'new')           AS status,
+                t.notes
+            FROM jobs j
+            LEFT JOIN job_scores s
+                ON j.id = s.job_id AND s.user_id = %s
+            LEFT JOIN job_tracking t
+                ON j.id = t.job_id AND t.user_id = %s
+            WHERE COALESCE(s.score_total, 0) >= %s
+            ORDER BY score_total DESC
+            LIMIT %s
+        """
+        try:
+            conn   = get_db()
+            cursor = conn.cursor(dictionary=True, buffered=True)
+            cursor.execute(sql, (user_id, user_id, min_score, limit))
+            results = cursor.fetchall()
+            cursor.close()
+            return results
+        except Error as e:
+            logger.error(f"Error fetching ranked jobs for user {user_id}: {e}")
+            return []
+
+    def get_unscored_jobs(self, user_id: int) -> List[dict]:
+        """
+        Returns jobs that have no score for this user yet.
+        Used by scoring engine to know what to process.
+        """
+        sql = """
+            SELECT j.id, j.title, j.description, j.location, j.source
+            FROM jobs j
+            LEFT JOIN job_scores s
+                ON j.id = s.job_id AND s.user_id = %s
+            WHERE s.id IS NULL
+        """
+        try:
+            conn   = get_db()
+            cursor = conn.cursor(dictionary=True, buffered=True)
+            cursor.execute(sql, (user_id,))
+            results = cursor.fetchall()
+            cursor.close()
+            return results
+        except Error as e:
+            logger.error(f"Error fetching unscored jobs for user {user_id}: {e}")
+            return []
+
+    def count(self, user_id: int) -> dict:
+        """
+        Returns counts by status for a specific user.
+        Used by dashboard header metrics.
+        """
+        sql = """
+            SELECT
+                COUNT(DISTINCT j.id)                        AS total,
+                SUM(COALESCE(t.status, 'new') = 'new')      AS new_jobs,
+                SUM(t.status = 'applied')                   AS applied,
+                SUM(DATE(j.date_ingested) = CURDATE())      AS today
+            FROM jobs j
+            LEFT JOIN job_scores s
+                ON j.id = s.job_id AND s.user_id = %s
+            LEFT JOIN job_tracking t
+                ON j.id = t.job_id AND t.user_id = %s
+            WHERE s.id IS NOT NULL
+        """
+        try:
+            conn   = get_db()
+            cursor = conn.cursor(dictionary=True, buffered=True)
+            cursor.execute(sql, (user_id, user_id))
             result = cursor.fetchone()
             cursor.close()
             return result or {}
         except Error as e:
-            logger.error(f"Error counting jobs: {e}")
+            logger.error(f"Error counting jobs for user {user_id}: {e}")
             return {}
+
+    def get_sources(self) -> List[str]:
+        """Returns distinct sources in jobs table."""
+        sql = "SELECT DISTINCT source FROM jobs ORDER BY source"
+        try:
+            conn   = get_db()
+            cursor = conn.cursor(buffered=True)
+            cursor.execute(sql)
+            results = [r[0] for r in cursor.fetchall()]
+            cursor.close()
+            return results
+        except Error as e:
+            logger.error(f"Error fetching sources: {e}")
+            return []
