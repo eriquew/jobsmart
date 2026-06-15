@@ -41,7 +41,7 @@ class JobRepository:
         """
         try:
             conn = get_db()
-            cursor = conn.cursor()
+            cursor = conn.cursor(buffered=True)
             cursor.execute(sql, job.to_dict())
             conn.commit()
             inserted = cursor.rowcount > 0
@@ -103,7 +103,7 @@ class JobRepository:
         """
         try:
             conn = get_db()
-            cursor = conn.cursor(dictionary=True)
+            cursor = conn.cursor(dictionary=True, buffered=True)
             cursor.execute(sql, (min_score, limit))
             results = cursor.fetchall()
             cursor.close()
@@ -122,7 +122,7 @@ class JobRepository:
         sql = "UPDATE jobs SET status = %s WHERE id = %s"
         try:
             conn = get_db()
-            cursor = conn.cursor()
+            cursor = conn.cursor(buffered=True)
             cursor.execute(sql, (status, job_id))
             conn.commit()
             cursor.close()
@@ -146,7 +146,7 @@ class JobRepository:
         """
         try:
             conn = get_db()
-            cursor = conn.cursor()
+            cursor = conn.cursor(buffered=True)
             scores["id"] = job_id
             cursor.execute(sql, scores)
             conn.commit()

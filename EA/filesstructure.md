@@ -50,3 +50,20 @@ job_pipeline/
 ├── Makefile                        # make run · make test · make dashboard
 ├── .gitignore
 └── README.md                       # Portfolio showcase con screenshots
+
+
+
+Resumen de donde estamos — Sprint 0:
+✅ Estructura MVC creada
+✅ Git + GitHub conectados
+✅ Todos los paquetes instalados
+✅ spaCy model descargado
+✅ .env protegido del repo
+
+⬜ schema.sql — siguiente paso
+⬜ db_connection.py
+⬜ job.py (dataclass)
+⬜ base_connector.py
+⬜ Job Bank connector
+Siguiente — crear la base de datos en MySQL.
+Primero conéctate a MySQL:

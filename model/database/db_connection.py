@@ -43,7 +43,8 @@ class DatabaseConnection:
                 password=os.getenv("DB_PASSWORD", ""),
                 charset="utf8mb4",
                 collation="utf8mb4_unicode_ci",
-                autocommit=False
+                autocommit=False,
+                consume_results=True
             )
             logger.info("MySQL connection established successfully")
             return conn

@@ -473,3 +473,93 @@ Mode                 LastWriteTime         Length Name
 
 
 (jobsmart) PS C:\wilson\myprojects\Misc\jobsmart> 
+
+(jobsmart) PS C:\wilson\myprojects\Misc\jobsmart> 
+(jobsmart) PS C:\wilson\myprojects\Misc\jobsmart> 
+(jobsmart) PS C:\wilson\myprojects\Misc\jobsmart> 
+(jobsmart) PS C:\wilson\myprojects\Misc\jobsmart> & "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -p
+Enter password: ********
+ERROR 1045 (28000): Access denied for user 'root'@'localhost' (using password: YES)
+(jobsmart) PS C:\wilson\myprojects\Misc\jobsmart> & "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -p
+Enter password: *********
+ERROR 1045 (28000): Access denied for user 'root'@'localhost' (using password: YES)
+(jobsmart) PS C:\wilson\myprojects\Misc\jobsmart> & "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -p
+Enter password: ****
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 10
+Server version: 8.0.39 MySQL Community Server - GPL
+
+Copyright (c) 2000, 2024, Oracle and/or its affiliates.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql> exit
+Bye
+(jobsmart) PS C:\wilson\myprojects\Misc\jobsmart> git --version
+git version 2.51.0.windows.2
+(jobsmart) PS C:\wilson\myprojects\Misc\jobsmart> git init
+Initialized empty Git repository in C:/wilson/myprojects/Misc/jobsmart/.git/
+(jobsmart) PS C:\wilson\myprojects\Misc\jobsmart> git config --global user.name "Wilson Erique"
+>> git config --global user.email "eriquew@gmail.com"
+(jobsmart) PS C:\wilson\myprojects\Misc\jobsmart> git config --global user.name "Wilson Erique"
+(jobsmart) PS C:\wilson\myprojects\Misc\jobsmart> git config --global user.email "eriquew@gmail.com"                                             
+(jobsmart) PS C:\wilson\myprojects\Misc\jobsmart> git add .
+warning: in the working copy of 'EA/job_pipeline_user_stories_sprints.html', LF will be replaced by CRLF the next time Git touches it
+(jobsmart) PS C:\wilson\myprojects\Misc\jobsmart> git status
+On branch master
+
+No commits yet
+
+Changes to be committed:
+  (use "git rm --cached <file>..." to unstage)
+        new file:   .gitignore
+        new file:   EA/filesstructure.md
+        new file:   EA/job_pipeline_user_stories_sprints.html
+        new file:   EA/logsterm.txt
+        new file:   README.md
+        new file:   controller/__init__.py
+        new file:   model/__init__.py
+        new file:   model/connectors/__init__.py
+        new file:   model/database/__init__.py
+        new file:   requirements.txt
+        new file:   tests/__init__.py
+        new file:   view/__init__.py
+        new file:   view/components/__init__.py
+        new file:   view/pages/__init__.py
+
+(jobsmart) PS C:\wilson\myprojects\Misc\jobsmart> git commit -m "initial project structure — MVC skeleton, gitignore, README"
+[master (root-commit) 7842649] initial project structure — MVC skeleton, gitignore, README
+ 14 files changed, 1275 insertions(+)
+ create mode 100644 .gitignore
+ create mode 100644 EA/filesstructure.md
+ create mode 100644 EA/job_pipeline_user_stories_sprints.html
+ create mode 100644 EA/logsterm.txt
+ create mode 100644 README.md
+ create mode 100644 controller/__init__.py
+ create mode 100644 model/__init__.py
+ create mode 100644 model/connectors/__init__.py
+ create mode 100644 model/database/__init__.py
+ create mode 100644 requirements.txt
+ create mode 100644 tests/__init__.py
+ create mode 100644 view/__init__.py
+ create mode 100644 view/components/__init__.py
+ create mode 100644 view/pages/__init__.py
+(jobsmart) PS C:\wilson\myprojects\Misc\jobsmart> git remote add origin https://github.com/eriquew/jobsmart.git
+(jobsmart) PS C:\wilson\myprojects\Misc\jobsmart> git branch -M maingit branch -M main
+fatal: too many arguments for a rename operation
+(jobsmart) PS C:\wilson\myprojects\Misc\jobsmart> git branch -M main
+(jobsmart) PS C:\wilson\myprojects\Misc\jobsmart> git push -u origin main
+Enumerating objects: 12, done.
+Counting objects: 100% (12/12), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (10/10), done.
+Writing objects: 100% (12/12), 13.16 KiB | 2.63 MiB/s, done.
+Total 12 (delta 0), reused 0 (delta 0), pack-reused 0 (from 0)
+To https://github.com/eriquew/jobsmart.git
+ * [new branch]      main -> main
+branch 'main' set up to track 'origin/main'.
+(jobsmart) PS C:\wilson\myprojects\Misc\jobsmart> 
