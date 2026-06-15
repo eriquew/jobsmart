@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 class ScoringEngine:
     """
-    Calculates fitness score for each job against Wilson's profile.
+    Calculates fitness score for each job against a user profile.
     Scores are 0-100 per dimension, weighted into a total score.
 
     Dimensions:
@@ -23,15 +23,24 @@ class ScoringEngine:
 
     def __init__(self,
                  profile_path: str = "config/profile.yaml",
-                 settings_path: str = "config/settings.yaml"):
+                 settings_path: str = "config/settings.yaml",
+                 profile: dict = None):
 
-        with open(profile_path, "r", encoding="utf-8") as f:
-            self.profile = yaml.safe_load(f)
+        # Accept profile dict directly or load from file
+        if profile:
+            self.profile = profile
+        else:
+            with open(profile_path, "r", encoding="utf-8") as f:
+                self.profile = yaml.safe_load(f)
 
         with open(settings_path, "r", encoding="utf-8") as f:
             self.settings = yaml.safe_load(f)
 
-        self.nlp = NLPProcessor(profile_path)
+        self.nlp = NLPProcessor(
+            profile_path=profile_path if not profile else None,
+            profile=profile
+        )
+
         self.weights = self.profile.get("weights", {
             "technical": 0.40,
             "seniority": 0.20,
@@ -83,7 +92,7 @@ class ScoringEngine:
         Main entry point — scores a single job.
         Returns dict with all score dimensions and NLP features.
         """
-        text = f"{title} {description}".lower()
+        text        = f"{title} {description}".lower()
         title_lower = title.lower()
 
         # Run NLP processing
@@ -122,13 +131,13 @@ class ScoringEngine:
         score_total = max(0, score_total - soft_penalty)
 
         return {
-            "score_total":            round(score_total, 1),
-            "score_technical":        round(score_technical, 1),
-            "score_seniority":        round(score_seniority, 1),
-            "score_industry":         round(score_industry, 1),
-            "score_location":         round(score_location, 1),
-            "flag_french_required":   int(nlp_result["flag_french_required"]),
-            "extracted_skills":       nlp_result["extracted_skills"]
+            "score_total":          round(score_total, 1),
+            "score_technical":      round(score_technical, 1),
+            "score_seniority":      round(score_seniority, 1),
+            "score_industry":       round(score_industry, 1),
+            "score_location":       round(score_location, 1),
+            "flag_french_required": int(nlp_result["flag_french_required"]),
+            "extracted_skills":     nlp_result["extracted_skills"]
         }
 
     def _score_technical(self, text: str, extracted_skills: str) -> float:
@@ -143,7 +152,6 @@ class ScoringEngine:
         matched_proficient = sum(1 for s in self.proficient_skills if s in text)
         matched_developing = sum(1 for s in self.developing_skills if s in text)
 
-        # Weighted skill score
         weighted_matched = (
             matched_expert     * 3 +
             matched_proficient * 2 +
@@ -169,17 +177,14 @@ class ScoringEngine:
     def _score_seniority(self, title: str, text: str,
                          detected_seniority: str) -> float:
         """Scores seniority level match."""
-        # Hard exclude junior roles
         for excl in self.exclude_seniority:
             if excl in title or excl in text[:200]:
                 return 0.0
 
-        # Check title against target levels
         for target in self.target_seniority:
             if target in title:
                 return 100.0
 
-        # Partial match on detected seniority
         if detected_seniority in ["senior", "manager", "director"]:
             return 85.0
         if detected_seniority == "mid":
@@ -199,7 +204,7 @@ class ScoringEngine:
         if familiar_matches >= 1:
             return 50.0
 
-        return 25.0  # unknown industry — not zero, just low
+        return 25.0
 
     def _score_location(self, location: str) -> float:
         """Scores location match against target locations."""
@@ -208,20 +213,16 @@ class ScoringEngine:
 
         loc_lower = location.lower()
 
-        # Remote is always good
         if "remote" in loc_lower or "anywhere" in loc_lower:
             return 90.0
 
-        # Target location match
         for target in self.target_locations:
             if target in loc_lower:
                 return 100.0
 
-        # General Canada match
         if "canada" in loc_lower:
             return 70.0
 
-        # US or international
         return 10.0
 
     def _score_title(self, title: str) -> float:

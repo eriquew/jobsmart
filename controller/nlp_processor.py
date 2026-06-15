@@ -2,7 +2,7 @@ import re
 import spacy
 import logging
 import yaml
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +10,11 @@ logger = logging.getLogger(__name__)
 try:
     nlp = spacy.load("en_core_web_sm")
 except OSError:
-    logger.error("spaCy model not found. Run: pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl")
+    logger.error(
+        "spaCy model not found. Run: "
+        "pip install https://github.com/explosion/spacy-models/releases/"
+        "download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl"
+    )
     nlp = None
 
 
@@ -19,6 +23,7 @@ class NLPProcessor:
     Processes job descriptions using NLP.
     Extracts skills, detects French requirement,
     detects seniority level, and extracts salary hints.
+    Accepts profile as dict (from DB) or loads from YAML file.
     """
 
     # French detection patterns
@@ -35,17 +40,31 @@ class NLPProcessor:
 
     # Seniority detection
     SENIORITY_MAP = {
-        "director":   ["director", "vp ", "vice president", "head of"],
-        "manager":    ["manager", "managing", "management"],
-        "senior":     ["senior", "sr.", "sr ", "principal", "lead", "staff"],
-        "mid":        ["architect", "engineer", "specialist", "analyst"],
-        "junior":     ["junior", "jr.", "associate", "entry", "intern",
-                       "co-op", "student", "graduate"]
+        "director": ["director", "vp ", "vice president", "head of"],
+        "manager":  ["manager", "managing", "management"],
+        "senior":   ["senior", "sr.", "sr ", "principal", "lead", "staff"],
+        "mid":      ["architect", "engineer", "specialist", "analyst"],
+        "junior":   ["junior", "jr.", "associate", "entry", "intern",
+                     "co-op", "student", "graduate"]
     }
 
-    def __init__(self, profile_path: str = "config/profile.yaml"):
-        with open(profile_path, "r", encoding="utf-8") as f:
-            self.profile = yaml.safe_load(f)
+    def __init__(self,
+                 profile_path: Optional[str] = "config/profile.yaml",
+                 profile: Optional[dict] = None):
+        """
+        Initializes NLP processor with a user profile.
+        Accepts profile dict directly (multi-user) or loads from YAML file.
+        """
+        # Accept profile dict directly or load from file
+        if profile:
+            self.profile = profile
+        elif profile_path:
+            with open(profile_path, "r", encoding="utf-8") as f:
+                self.profile = yaml.safe_load(f)
+        else:
+            # Fallback to default profile file
+            with open("config/profile.yaml", "r", encoding="utf-8") as f:
+                self.profile = yaml.safe_load(f)
 
         # Flatten all skills into a searchable list
         skills = self.profile.get("skills", {})
@@ -85,7 +104,7 @@ class NLPProcessor:
         Returns comma-separated string of matched skills.
         """
         text_lower = text.lower()
-        matched = []
+        matched    = []
 
         for i, skill_lower in enumerate(self.all_skills_lower):
             # Use word boundary for short skills to avoid false matches
@@ -113,12 +132,11 @@ class NLPProcessor:
 
         return "mid"  # default
 
-    def extract_salary_hint(self, text: str) -> Tuple[int, int]:
+    def extract_salary_hint(self, text: str) -> Tuple:
         """
         Extracts salary range from free text.
         Returns (min, max) tuple or (None, None).
         """
-        # Match patterns like $95,000 or $95k or 95,000
         pattern = r'\$?\s*(\d{2,3}(?:,\d{3})?(?:\.\d+)?)\s*(?:k|K)?'
         matches = re.findall(pattern, text)
 
@@ -126,7 +144,6 @@ class NLPProcessor:
         for m in matches:
             try:
                 val = float(m.replace(",", ""))
-                # If it looks like "k" notation
                 if val < 1000:
                     val *= 1000
                 if 30000 <= val <= 500000:

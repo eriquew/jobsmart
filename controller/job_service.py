@@ -1,9 +1,9 @@
 import logging
+import yaml
 from typing import List, Optional
-from mysql.connector import Error
 
-from model.database.db_connection import get_db
 from model.job_repository import JobRepository
+from model.user_repository import UserRepository
 from controller.scoring_engine import ScoringEngine
 
 logger = logging.getLogger(__name__)
@@ -12,38 +12,59 @@ logger = logging.getLogger(__name__)
 class JobService:
     """
     Interface between controller and view layers.
-    Orchestrates scoring, filtering, and status updates.
-    All dashboard queries go through this service.
+    All operations are user-aware via user_id.
     """
 
-    def __init__(self):
-        self.repo    = JobRepository()
-        self.engine  = ScoringEngine()
+    def __init__(self, user_id: int = 1):
+        self.user_id  = user_id
+        self.repo     = JobRepository()
+        self.user_repo = UserRepository()
+        self._engine  = None
+
+    @property
+    def engine(self) -> ScoringEngine:
+        """
+        Lazy-loads scoring engine with user's profile.
+        Reloads if user changes.
+        """
+        if self._engine is None:
+            self._engine = self._load_engine()
+        return self._engine
+
+    def _load_engine(self) -> ScoringEngine:
+        """
+        Loads scoring engine with the active user's profile.
+        Falls back to config/profile.yaml for user_id=1.
+        """
+        profile = self.user_repo.get_profile(self.user_id)
+        if profile:
+            return ScoringEngine(profile=profile)
+        logger.warning(
+            f"No profile found for user {self.user_id} "
+            f"— using default config/profile.yaml"
+        )
+        return ScoringEngine()
+
+    def set_user(self, user_id: int):
+        """
+        Switches active user.
+        Resets scoring engine to load new user's profile.
+        """
+        self.user_id = user_id
+        self._engine = None
+        logger.info(f"Active user switched to user_id={user_id}")
+
+    # ── SCORING ────────────────────────────────────────────
 
     def score_all_jobs(self) -> dict:
         """
-        Scores all unscored jobs in the database.
-        Called after pipeline runs or when profile changes.
-        Returns summary of jobs scored.
+        Scores all unscored jobs for the active user.
+        Called after pipeline runs or when a new user is created.
         """
-        logger.info("Starting score_all_jobs...")
-
-        sql = """
-            SELECT id, title, description, location, source
-            FROM jobs
-            WHERE score_total = 0
-            AND status = 'new'
-        """
-        try:
-            conn   = get_db()
-            cursor = conn.cursor(dictionary=True)
-            cursor.execute(sql)
-            jobs   = cursor.fetchall()
-            cursor.close()
-        except Error as e:
-            logger.error(f"Error fetching unscored jobs: {e}")
-            return {"scored": 0, "errors": 0}
-
+        logger.info(
+            f"score_all_jobs — user_id={self.user_id}"
+        )
+        jobs   = self.repo.get_unscored_jobs(self.user_id)
         scored = errors = 0
 
         for job in jobs:
@@ -54,40 +75,49 @@ class JobService:
                     location=job["location"] or "",
                     source=job["source"] or ""
                 )
-                success = self.repo.update_scores(job["id"], scores)
+                success = self.repo.update_scores(
+                    job["id"], self.user_id, scores
+                )
                 if success:
                     scored += 1
-                    logger.debug(
-                        f"Scored [{scores['score_total']}%]: "
-                        f"{job['title']} @ {job['source']}"
-                    )
             except Exception as e:
                 logger.error(f"Error scoring job {job['id']}: {e}")
                 errors += 1
 
-        logger.info(f"score_all_jobs complete — scored: {scored} | errors: {errors}")
+        logger.info(
+            f"score_all_jobs complete — "
+            f"scored: {scored} | errors: {errors}"
+        )
         return {"scored": scored, "errors": errors}
 
     def rescore_all_jobs(self) -> dict:
         """
-        Re-scores ALL jobs regardless of current score.
-        Used when profile.yaml changes.
+        Re-scores ALL jobs for the active user.
+        Used when profile changes.
         """
-        logger.info("Starting rescore_all_jobs...")
+        logger.info(f"rescore_all_jobs — user_id={self.user_id}")
 
-        sql = "SELECT id, title, description, location, source FROM jobs"
+        # Reset engine to pick up any profile changes
+        self._engine = None
+
+        from model.database.db_connection import get_db
+        from mysql.connector import Error
+
+        sql = """
+            SELECT j.id, j.title, j.description, j.location, j.source
+            FROM jobs j
+        """
         try:
             conn   = get_db()
-            cursor = conn.cursor(dictionary=True)
+            cursor = conn.cursor(dictionary=True, buffered=True)
             cursor.execute(sql)
             jobs   = cursor.fetchall()
             cursor.close()
         except Error as e:
-            logger.error(f"Error fetching jobs for rescore: {e}")
+            logger.error(f"Error fetching all jobs: {e}")
             return {"scored": 0, "errors": 0}
 
         scored = errors = 0
-
         for job in jobs:
             try:
                 scores = self.engine.score(
@@ -96,9 +126,8 @@ class JobService:
                     location=job["location"] or "",
                     source=job["source"] or ""
                 )
-                success = self.repo.update_scores(job["id"], scores)
-                if success:
-                    scored += 1
+                self.repo.update_scores(job["id"], self.user_id, scores)
+                scored += 1
             except Exception as e:
                 logger.error(f"Error rescoring job {job['id']}: {e}")
                 errors += 1
@@ -109,102 +138,62 @@ class JobService:
         )
         return {"scored": scored, "errors": errors}
 
-    def get_ranked_jobs(self,
-                        min_score:    float = 0.0,
-                        sources:      Optional[List[str]] = None,
-                        locations:    Optional[List[str]] = None,
-                        status:       Optional[str] = None,
-                        hide_french:  bool = False,
-                        limit:        int = 200) -> List[dict]:
-        """
-        Returns jobs ranked by score with optional filters.
-        Used by the dashboard main table.
-        """
-        where_clauses = ["score_total >= %s"]
-        params        = [min_score]
+    # ── QUERIES ────────────────────────────────────────────
 
+    def get_ranked_jobs(self,
+                        min_score:   float = 0.0,
+                        sources:     Optional[List[str]] = None,
+                        status:      Optional[str] = None,
+                        hide_french: bool = False,
+                        limit:       int = 200) -> List[dict]:
+        """
+        Returns jobs ranked by score for active user.
+        Applies optional filters.
+        """
+        jobs = self.repo.find_by_score(
+            user_id=self.user_id,
+            min_score=min_score,
+            limit=limit
+        )
+
+        # Apply filters client-side
         if sources:
-            placeholders = ", ".join(["%s"] * len(sources))
-            where_clauses.append(f"source IN ({placeholders})")
-            params.extend(sources)
+            jobs = [j for j in jobs if j["source"] in sources]
 
         if status:
-            where_clauses.append("status = %s")
-            params.append(status)
+            jobs = [j for j in jobs if j["status"] == status]
 
         if hide_french:
-            where_clauses.append("flag_french_required = 0")
+            jobs = [j for j in jobs if not j["flag_french_required"]]
 
-        if locations:
-            loc_conditions = " OR ".join(
-                ["location LIKE %s"] * len(locations)
-            )
-            where_clauses.append(f"({loc_conditions})")
-            params.extend([f"%{loc}%" for loc in locations])
+        return jobs
 
-        where_sql = " AND ".join(where_clauses)
-
-        sql = f"""
-            SELECT
-                id, source, title, company, location,
-                salary_min, salary_max, currency,
-                url, date_posted, date_ingested,
-                score_total, score_technical,
-                score_seniority, score_industry,
-                score_location, flag_french_required,
-                extracted_skills, status
-            FROM jobs
-            WHERE {where_sql}
-            ORDER BY score_total DESC
-            LIMIT %s
-        """
-        params.append(limit)
-
-        try:
-            conn   = get_db()
-            cursor = conn.cursor(dictionary=True)
-            cursor.execute(sql, params)
-            results = cursor.fetchall()
-            cursor.close()
-            return results
-        except Error as e:
-            logger.error(f"Error fetching ranked jobs: {e}")
-            return []
-
-    def update_status(self, job_id: int, status: str) -> bool:
-        """Updates job application status."""
-        return self.repo.update_status(job_id, status)
+    def update_status(self, job_id: int, status: str,
+                      notes: str = None) -> bool:
+        """Updates job tracking status for active user."""
+        return self.repo.update_status(
+            job_id, self.user_id, status, notes
+        )
 
     def get_counts(self) -> dict:
-        """Returns dashboard header metrics."""
-        counts = self.repo.count()
-        # Convert Decimal to int for Streamlit
+        """Returns dashboard header metrics for active user."""
+        counts = self.repo.count(self.user_id)
         return {k: int(v) if v else 0 for k, v in counts.items()}
 
     def get_sources(self) -> List[str]:
-        """Returns list of distinct sources in DB."""
-        sql = "SELECT DISTINCT source FROM jobs ORDER BY source"
-        try:
-            conn   = get_db()
-            cursor = conn.cursor()
-            cursor.execute(sql)
-            results = [row[0] for row in cursor.fetchall()]
-            cursor.close()
-            return results
-        except Error as e:
-            logger.error(f"Error fetching sources: {e}")
-            return []
+        """Returns distinct sources in jobs table."""
+        return self.repo.get_sources()
 
     def get_analytics(self) -> dict:
-        """
-        Returns analytics data for the analytics page.
-        Top skills, jobs by city, score distribution.
-        """
+        """Returns analytics data for active user."""
+        from model.database.db_connection import get_db
+        from mysql.connector import Error
+
         try:
             conn = get_db()
 
             # Jobs by source
-            cursor = conn.cursor(dictionary=True)
+            cursor = conn.cursor(dictionary=True, buffered=True)
             cursor.execute("""
                 SELECT source, COUNT(*) as count
                 FROM jobs
@@ -213,7 +202,7 @@ class JobService:
             """)
             by_source = cursor.fetchall()
 
-            # Score distribution
+            # Score distribution for this user
             cursor.execute("""
                 SELECT
                     CASE
@@ -223,10 +212,11 @@ class JobService:
                         ELSE 'Very Low (0-24)'
                     END as bucket,
                     COUNT(*) as count
-                FROM jobs
+                FROM job_scores
+                WHERE user_id = %s
                 GROUP BY bucket
                 ORDER BY bucket DESC
-            """)
+            """, (self.user_id,))
             score_dist = cursor.fetchall()
 
             # Top locations
@@ -241,13 +231,22 @@ class JobService:
             by_location = cursor.fetchall()
 
             cursor.close()
-
             return {
-                "by_source":   by_source,
-                "score_dist":  score_dist,
+                "by_source":  by_source,
+                "score_dist": score_dist,
                 "by_location": by_location
             }
 
         except Error as e:
             logger.error(f"Error fetching analytics: {e}")
             return {}
+
+    # ── USER MANAGEMENT ────────────────────────────────────
+
+    def get_all_users(self) -> List[dict]:
+        """Returns all users for sidebar selector."""
+        return self.user_repo.get_all_users()
+
+    def get_active_user(self) -> Optional[dict]:
+        """Returns active user record."""
+        return self.user_repo.get_user_by_id(self.user_id)
