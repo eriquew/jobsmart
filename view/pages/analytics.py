@@ -1,15 +1,14 @@
 import streamlit as st
 import plotly.express as px
-import plotly.graph_objects as go
 import pandas as pd
 
 from controller.job_service import JobService
 
-svc = JobService()
 
-
-def show_analytics():
+def show_analytics(svc: JobService = None):
     """Analytics page — market intelligence."""
+    if svc is None:
+        svc = JobService(user_id=1)
 
     st.title("📊 Market Analytics")
     st.caption("Insights from your job search pipeline")
@@ -50,7 +49,6 @@ def show_analytics():
                 "Low (25-49)":     "#E07B39",
                 "Very Low (0-24)": "#D94F3D"
             }
-            df_score["color"] = df_score["bucket"].map(colors)
             fig = px.bar(
                 df_score,
                 x="bucket",

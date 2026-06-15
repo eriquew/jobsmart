@@ -7,10 +7,8 @@ from datetime import datetime
 
 from controller.job_service import JobService
 
-svc = JobService()
 
-
-def run_pipeline(keywords: str, location: str):
+def run_pipeline(svc: JobService, keywords: str, location: str):
     """Triggers pipeline run with custom keywords and location."""
     with st.spinner(f"Fetching jobs — '{keywords}' in '{location}'..."):
         result = subprocess.run(
@@ -52,8 +50,10 @@ def score_badge(score: float) -> str:
         return f"🔴 {score}%"
 
 
-def show_dashboard():
+def show_dashboard(svc: JobService = None):
     """Main dashboard page."""
+    if svc is None:
+        svc = JobService(user_id=1)
 
     # ── Header metrics ──────────────────────────────────────
     counts = svc.get_counts()
@@ -72,24 +72,22 @@ def show_dashboard():
         # ── Search configuration ────────────────────────────
         st.subheader("🔎 Search Configuration")
 
-        # Keywords input
         keywords_input = st.text_area(
             "Job keywords (comma-separated)",
             value="solutions architect, presales engineer, network architect, cloud architect",
             height=100,
-            help="Enter keywords separated by commas. Each keyword runs as a separate search term."
+            help="Enter keywords separated by commas."
         )
 
-        # Location selector
         location_options = {
-            "Ontario, Canada (all)":  "Ontario Canada",
-            "Toronto, ON":            "Toronto Ontario",
-            "Hamilton, ON":           "Hamilton Ontario",
-            "Mississauga, ON":        "Mississauga Ontario",
-            "Ottawa, ON":             "Ottawa Ontario",
-            "Waterloo / Kitchener":   "Waterloo Ontario",
-            "Remote (Canada)":        "Remote Canada",
-            "Custom...":              "custom"
+            "Ontario, Canada (all)": "Ontario Canada",
+            "Toronto, ON":           "Toronto Ontario",
+            "Hamilton, ON":          "Hamilton Ontario",
+            "Mississauga, ON":       "Mississauga Ontario",
+            "Ottawa, ON":            "Ottawa Ontario",
+            "Waterloo / Kitchener":  "Waterloo Ontario",
+            "Remote (Canada)":       "Remote Canada",
+            "Custom...":             "custom"
         }
 
         selected_location = st.selectbox(
@@ -98,7 +96,6 @@ def show_dashboard():
             index=0
         )
 
-        # Custom location input
         if selected_location == "Custom...":
             custom_location = st.text_input(
                 "Enter location",
@@ -108,30 +105,24 @@ def show_dashboard():
         else:
             location_value = location_options[selected_location]
 
-        # Run button
         if st.button(
             "🔄 Run Pipeline Now",
             use_container_width=True,
             type="primary"
         ):
-            # Clean up keywords
             keywords_clean = ", ".join([
                 kw.strip()
                 for kw in keywords_input.split(",")
                 if kw.strip()
             ])
-            run_pipeline(keywords_clean, location_value)
+            run_pipeline(svc, keywords_clean, location_value)
 
-        st.caption(
-            f"Last refresh: {datetime.now().strftime('%H:%M:%S')}"
-        )
-
+        st.caption(f"Last refresh: {datetime.now().strftime('%H:%M:%S')}")
         st.divider()
 
         # ── Results filters ─────────────────────────────────
         st.subheader("📋 Filter Results")
 
-        # Keyword search in results
         keyword_filter = st.text_input(
             "🔍 Search in results",
             placeholder="e.g. CCIE, presales, Cisco...",
@@ -176,9 +167,8 @@ def show_dashboard():
         limit=200
     )
 
-    # Apply keyword filter client-side
     if keyword_filter:
-        kw = keyword_filter.lower()
+        kw   = keyword_filter.lower()
         jobs = [
             j for j in jobs
             if kw in (j.get("title") or "").lower()
@@ -216,12 +206,11 @@ def show_dashboard():
             "Posted":   str(j["date_posted"]) if j["date_posted"] else "",
             "Status":   j["status"],
             "🇫🇷":      "🇫🇷" if j["flag_french_required"] else "",
-            "🔗 Apply": j.get("url", "") 
+            "🔗 Apply": j.get("url", "")
         })
 
     df = pd.DataFrame(rows)
 
-    # ── Render table ────────────────────────────────────────
     st.dataframe(
         df.drop(columns=["id"]),
         use_container_width=True,
