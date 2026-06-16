@@ -61,6 +61,8 @@ class JobService:
         Scores all unscored jobs for the active user.
         Called after pipeline runs or when a new user is created.
         """
+        # Force reload engine with current user's profile
+        self._engine = None
         logger.info(
             f"score_all_jobs — user_id={self.user_id}"
         )

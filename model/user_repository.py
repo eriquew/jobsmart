@@ -26,8 +26,8 @@ class UserRepository:
             VALUES (%s, %s, %s, %s)
         """
         try:
-            conn   = get_db()
-            cursor = conn.cursor(buffered=True)
+            conn     = get_db()
+            cursor   = conn.cursor(buffered=True)
             yaml_str = yaml.dump(profile_yaml,
                                  allow_unicode=True) if profile_yaml else None
             cursor.execute(sql, (name, email, location, yaml_str))
@@ -56,7 +56,7 @@ class UserRepository:
 
     def get_user_by_id(self, user_id: int) -> Optional[dict]:
         """Returns full user record including profile_yaml."""
-        sql = "SELECT * FROM users WHERE id = %s"
+        sql = "SELECT id, name, email, location, profile_yaml, resume_filename FROM users WHERE id = %s"
         try:
             conn   = get_db()
             cursor = conn.cursor(dictionary=True, buffered=True)
@@ -82,7 +82,9 @@ class UserRepository:
             try:
                 return yaml.safe_load(user["profile_yaml"])
             except yaml.YAMLError as e:
-                logger.error(f"Error parsing profile YAML for user {user_id}: {e}")
+                logger.error(
+                    f"Error parsing profile YAML for user {user_id}: {e}"
+                )
 
         # Fallback to file for default user
         if user_id == 1:
@@ -108,6 +110,68 @@ class UserRepository:
             return True
         except Error as e:
             logger.error(f"Error updating profile for user {user_id}: {e}")
+            return False
+
+    def save_resume_pdf(self, user_id: int,
+                        pdf_bytes: bytes,
+                        filename: str) -> bool:
+        """Saves resume PDF binary to DB for this user."""
+        sql = """
+            UPDATE users
+            SET resume_pdf = %s, resume_filename = %s
+            WHERE id = %s
+        """
+        try:
+            conn   = get_db()
+            cursor = conn.cursor(buffered=True)
+            cursor.execute(sql, (pdf_bytes, filename, user_id))
+            conn.commit()
+            cursor.close()
+            logger.info(f"Resume PDF saved for user {user_id}: {filename}")
+            return True
+        except Error as e:
+            logger.error(f"Error saving PDF for user {user_id}: {e}")
+            return False
+
+    def get_resume_pdf(self, user_id: int) -> Optional[dict]:
+        """
+        Returns resume PDF bytes and filename for a user.
+        Returns dict with keys: pdf_bytes, filename — or None.
+        """
+        sql = """
+            SELECT resume_pdf, resume_filename
+            FROM users WHERE id = %s
+        """
+        try:
+            conn   = get_db()
+            cursor = conn.cursor(dictionary=True, buffered=True)
+            cursor.execute(sql, (user_id,))
+            result = cursor.fetchone()
+            cursor.close()
+            if result and result.get("resume_pdf"):
+                return {
+                    "pdf_bytes": bytes(result["resume_pdf"]),
+                    "filename":  result["resume_filename"]
+                }
+            return None
+        except Error as e:
+            logger.error(f"Error fetching PDF for user {user_id}: {e}")
+            return None
+
+    def has_resume(self, user_id: int) -> bool:
+        """Returns True if user has a resume PDF stored."""
+        sql = """
+            SELECT resume_filename FROM users
+            WHERE id = %s AND resume_pdf IS NOT NULL
+        """
+        try:
+            conn   = get_db()
+            cursor = conn.cursor(buffered=True)
+            cursor.execute(sql, (user_id,))
+            result = cursor.fetchone()
+            cursor.close()
+            return result is not None
+        except Error as e:
             return False
 
     def delete_user(self, user_id: int) -> bool:

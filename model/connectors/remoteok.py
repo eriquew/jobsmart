@@ -32,12 +32,12 @@ class RemoteOKConnector(BaseConnector):
         keywords_lower = keywords.lower().split()
         filtered = []
         for job in jobs:
-            text = f"{job.get('position', '')} {job.get('tags', '')}".lower()
+            text         = f"{job.get('position', '')} {job.get('tags', '')}".lower()
             job_location = job.get("location", "Remote")
 
             if any(kw in text for kw in keywords_lower):
                 # Apply Canada / remote filter
-                if self._is_relevant(job_location):
+                if self._is_canadian_or_remote(job_location):
                     filtered.append(job)
                     if len(filtered) >= max_results:
                         break

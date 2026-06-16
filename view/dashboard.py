@@ -6,38 +6,34 @@ import os
 from datetime import datetime
 
 from controller.job_service import JobService
-
-
 def run_pipeline(svc: JobService, keywords: str, location: str):
     """Triggers pipeline run with custom keywords and location."""
-    with st.spinner(f"Fetching jobs — '{keywords}' in '{location}'..."):
+
+    with st.spinner(f"Fetching and scoring jobs — '{keywords}' in '{location}'..."):
         result = subprocess.run(
             [sys.executable, "controller/pipeline.py",
              "--keywords", keywords,
              "--location", location,
-             "--max", "25"],
+             "--max", "25",
+             "--user_id", str(svc.user_id)],
             capture_output=True, text=True, cwd=os.getcwd()
         )
 
-    with st.spinner("Scoring new jobs..."):
-        score_result = svc.score_all_jobs()
-
     if result.returncode == 0:
-        st.success(
-            f"Pipeline complete — "
-            f"{score_result['scored']} new jobs scored"
-        )
+        st.success("Pipeline complete — refresh to see new jobs")
     else:
         st.warning("Pipeline finished with some errors")
         if result.stderr:
             with st.expander("Error details"):
                 st.code(result.stderr[-2000:])
 
+    # Force session state reload
+    st.session_state.svc = JobService(user_id=svc.user_id)
+
     import time
     time.sleep(1)
     st.rerun()
-
-
+    
 def score_badge(score: float) -> str:
     """Returns colored score badge."""
     if score >= 75:
@@ -72,13 +68,34 @@ def show_dashboard(svc: JobService = None):
         # ── Search configuration ────────────────────────────
         st.subheader("🔎 Search Configuration")
 
+        # Load keywords from active user profile
+        profile    = svc.user_repo.get_profile(svc.user_id)
+        default_kw = "solutions architect, presales engineer"
+
+        if profile:
+            titles     = profile.get("target_titles", {})
+            high       = titles.get("high_priority", [])
+            mid        = titles.get("medium_priority", [])
+            all_titles = high[:3] + mid[:2]
+            if all_titles:
+                default_kw = ", ".join(all_titles)
+
+        # Per-user session key — resets when user switches
+        user_kw_key = f"keywords_user_{svc.user_id}"
+        if user_kw_key not in st.session_state:
+            st.session_state[user_kw_key] = default_kw
+
         keywords_input = st.text_area(
             "Job keywords (comma-separated)",
-            value="solutions architect, presales engineer, network architect, cloud architect",
+            value=st.session_state[user_kw_key],
             height=100,
-            help="Enter keywords separated by commas."
+            help="Pre-populated from your profile. Edit freely and click Run Pipeline.",
+            key=f"kw_input_{svc.user_id}"
         )
 
+        st.session_state[user_kw_key] = keywords_input
+
+        # Location selector
         location_options = {
             "Ontario, Canada (all)": "Ontario Canada",
             "Toronto, ON":           "Toronto Ontario",
@@ -93,13 +110,15 @@ def show_dashboard(svc: JobService = None):
         selected_location = st.selectbox(
             "Location",
             options=list(location_options.keys()),
-            index=0
+            index=0,
+            key=f"loc_{svc.user_id}"
         )
 
         if selected_location == "Custom...":
             custom_location = st.text_input(
                 "Enter location",
-                placeholder="e.g. Vancouver British Columbia"
+                placeholder="e.g. Vancouver British Columbia",
+                key=f"custom_loc_{svc.user_id}"
             )
             location_value = custom_location or "Ontario Canada"
         else:
@@ -108,7 +127,8 @@ def show_dashboard(svc: JobService = None):
         if st.button(
             "🔄 Run Pipeline Now",
             use_container_width=True,
-            type="primary"
+            type="primary",
+            key=f"run_pipeline_{svc.user_id}"
         ):
             keywords_clean = ", ".join([
                 kw.strip()
@@ -126,7 +146,8 @@ def show_dashboard(svc: JobService = None):
         keyword_filter = st.text_input(
             "🔍 Search in results",
             placeholder="e.g. CCIE, presales, Cisco...",
-            help="Filters results by title, company, or matched skills"
+            help="Filters results by title, company, or matched skills",
+            key=f"kw_filter_{svc.user_id}"
         )
 
         min_score = st.slider(
@@ -134,26 +155,30 @@ def show_dashboard(svc: JobService = None):
             min_value=0,
             max_value=100,
             value=30,
-            step=5
+            step=5,
+            key=f"min_score_{svc.user_id}"
         )
 
         sources = svc.get_sources()
         selected_sources = st.multiselect(
             "Sources",
             options=sources,
-            default=sources
+            default=sources,
+            key=f"sources_{svc.user_id}"
         )
 
         hide_french = st.toggle(
             "Hide French-required roles",
-            value=True
+            value=True,
+            key=f"hide_french_{svc.user_id}"
         )
 
         status_filter = st.selectbox(
             "Application status",
             options=["All", "new", "reviewed", "applied",
                      "interview", "rejected"],
-            index=0
+            index=0,
+            key=f"status_{svc.user_id}"
         )
 
     # ── Fetch jobs ──────────────────────────────────────────
@@ -167,6 +192,7 @@ def show_dashboard(svc: JobService = None):
         limit=200
     )
 
+    # Apply keyword filter client-side
     if keyword_filter:
         kw   = keyword_filter.lower()
         jobs = [
@@ -235,11 +261,16 @@ def show_dashboard(svc: JobService = None):
 
     selected = st.selectbox(
         "Select a job to view full details",
-        options=list(job_options.keys())
+        options=list(job_options.keys()),
+        key=f"job_select_{svc.user_id}"
     )
 
     col1, col2 = st.columns([1, 4])
     with col1:
-        if st.button("View Details →", use_container_width=True):
+        if st.button(
+            "View Details →",
+            use_container_width=True,
+            key=f"view_detail_{svc.user_id}"
+        ):
             st.session_state.selected_job_id = job_options[selected]
             st.rerun()

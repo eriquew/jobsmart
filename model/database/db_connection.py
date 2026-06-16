@@ -27,8 +27,15 @@ class DatabaseConnection:
         return cls._instance
 
     def get_connection(self):
-        """Returns active connection, creates one if not exists."""
-        if self._connection is None or not self._connection.is_connected():
+        """Returns active connection, creates one if not exists or if broken."""
+        try:
+            if self._connection is None or not self._connection.is_connected():
+                self._connection = self._create_connection()
+            else:
+                self._connection.ping(reconnect=True, attempts=3, delay=1)
+                # Clear any cached query results
+                self._connection.reset_session()
+        except Exception:
             self._connection = self._create_connection()
         return self._connection
 

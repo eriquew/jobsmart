@@ -9,12 +9,34 @@ svc = JobService()
 
 
 def get_job_by_id(job_id: int) -> dict:
-    """Fetches full job record including description."""
-    sql = "SELECT * FROM jobs WHERE id = %s"
+    """Fetches full job record including scores from job_scores."""
+    sql = """
+        SELECT
+            j.*,
+            COALESCE(s.score_total, 0)          AS score_total,
+            COALESCE(s.score_technical, 0)      AS score_technical,
+            COALESCE(s.score_seniority, 0)      AS score_seniority,
+            COALESCE(s.score_industry, 0)       AS score_industry,
+            COALESCE(s.score_location, 0)       AS score_location,
+            COALESCE(s.flag_french_required, 0) AS flag_french_required,
+            COALESCE(s.extracted_skills, '')    AS extracted_skills,
+            COALESCE(t.status, 'new')           AS status,
+            t.notes
+        FROM jobs j
+        LEFT JOIN job_scores s
+            ON j.id = s.job_id AND s.user_id = %s
+        LEFT JOIN job_tracking t
+            ON j.id = t.job_id AND t.user_id = %s
+        WHERE j.id = %s
+    """
     try:
         conn   = get_db()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute(sql, (job_id,))
+        cursor = conn.cursor(dictionary=True, buffered=True)
+        cursor.execute(sql, (
+            st.session_state.get("user_id", 1),
+            st.session_state.get("user_id", 1),
+            job_id
+        ))
         result = cursor.fetchone()
         cursor.close()
         return result or {}

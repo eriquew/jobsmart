@@ -48,7 +48,7 @@ def run_connector(connector, keywords: str,
     Returns a summary dict for logging.
     """
     start = time.time()
-    repo = JobRepository()
+    repo  = JobRepository()
 
     try:
         jobs = connector.get_jobs(
@@ -56,7 +56,7 @@ def run_connector(connector, keywords: str,
             location=location,
             max_results=max_results
         )
-        result = repo.save_many(jobs)
+        result  = repo.save_many(jobs)
         elapsed = round(time.time() - start, 1)
 
         return {
@@ -73,13 +73,13 @@ def run_connector(connector, keywords: str,
         elapsed = round(time.time() - start, 1)
         logger.error(f"[{connector.SOURCE_NAME}] Failed: {e}")
         return {
-            "source":  connector.SOURCE_NAME,
-            "fetched": 0,
-            "saved":   0,
+            "source":     connector.SOURCE_NAME,
+            "fetched":    0,
+            "saved":      0,
             "duplicates": 0,
-            "errors":  1,
-            "elapsed": elapsed,
-            "status":  "failed"
+            "errors":     1,
+            "elapsed":    elapsed,
+            "status":     "failed"
         }
 
 
@@ -87,50 +87,56 @@ def run_pipeline(keywords: str, location: str,
                  max_results: int = 25) -> dict:
     """
     Runs all connectors in parallel using ThreadPoolExecutor.
+    Splits keywords by comma and runs each as a separate search.
     Returns aggregated summary.
     """
+    keyword_list = [kw.strip() for kw in keywords.split(",") if kw.strip()]
+
     logger.info("=" * 60)
     logger.info(f"Pipeline started — {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    logger.info(f"Keywords: '{keywords}' | Location: '{location}'")
-    logger.info(f"Sources: {len(CONNECTORS)} | Max per source: {max_results}")
+    logger.info(f"Keywords: {keyword_list}")
+    logger.info(f"Location: '{location}'")
+    logger.info(f"Sources: {len(CONNECTORS)} | Max per source per keyword: {max_results}")
     logger.info("=" * 60)
 
     start_total = time.time()
-    results = []
+    all_results = []
 
-    # Run all connectors in parallel
-    with ThreadPoolExecutor(max_workers=len(CONNECTORS)) as executor:
-        futures = {
-            executor.submit(
-                run_connector, conn, keywords, location, max_results
-            ): conn.SOURCE_NAME
-            for conn in CONNECTORS
-        }
+    for keyword in keyword_list:
+        logger.info(f"Searching: '{keyword}'")
 
-        for future in as_completed(futures):
-            result = future.result()
-            results.append(result)
-            logger.info(
-                f"[{result['source']:12}] "
-                f"fetched: {result['fetched']:3} | "
-                f"saved: {result['saved']:3} | "
-                f"dupes: {result['duplicates']:3} | "
-                f"time: {result['elapsed']}s | "
-                f"status: {result['status']}"
-            )
+        with ThreadPoolExecutor(max_workers=len(CONNECTORS)) as executor:
+            futures = {
+                executor.submit(
+                    run_connector, conn, keyword, location, max_results
+                ): conn.SOURCE_NAME
+                for conn in CONNECTORS
+            }
 
-    # Aggregate totals
+            for future in as_completed(futures):
+                result          = future.result()
+                result["keyword"] = keyword
+                all_results.append(result)
+                logger.info(
+                    f"[{result['source']:12}] [{keyword[:20]:20}] "
+                    f"fetched: {result['fetched']:3} | "
+                    f"saved: {result['saved']:3} | "
+                    f"dupes: {result['duplicates']:3} | "
+                    f"time: {result['elapsed']}s | "
+                    f"status: {result['status']}"
+                )
+
     total_elapsed = round(time.time() - start_total, 1)
     summary = {
-        "sources_run":    len(results),
-        "sources_ok":     sum(1 for r in results if r["status"] == "ok"),
-        "sources_failed": sum(1 for r in results if r["status"] == "failed"),
-        "total_fetched":  sum(r["fetched"] for r in results),
-        "total_saved":    sum(r["saved"] for r in results),
-        "total_dupes":    sum(r["duplicates"] for r in results),
-        "total_errors":   sum(r["errors"] for r in results),
+        "sources_run":     len(all_results),
+        "sources_ok":      sum(1 for r in all_results if r["status"] == "ok"),
+        "sources_failed":  sum(1 for r in all_results if r["status"] == "failed"),
+        "total_fetched":   sum(r["fetched"] for r in all_results),
+        "total_saved":     sum(r["saved"] for r in all_results),
+        "total_dupes":     sum(r["duplicates"] for r in all_results),
+        "total_errors":    sum(r["errors"] for r in all_results),
         "elapsed_seconds": total_elapsed,
-        "details":        results
+        "details":         all_results
     }
 
     logger.info("=" * 60)
@@ -169,10 +175,28 @@ if __name__ == "__main__":
         default=25,
         help="Max results per source"
     )
+    parser.add_argument(
+        "--user_id",
+        type=int,
+        default=1,
+        help="User ID to score jobs for"
+    )
 
     args = parser.parse_args()
+
+    # Run pipeline
     run_pipeline(
         keywords=args.keywords,
         location=args.location,
         max_results=args.max
+    )
+
+    # Auto-score for the specified user
+    logger.info(f"Auto-scoring jobs for user_id={args.user_id}...")
+    from controller.job_service import JobService
+    svc    = JobService(user_id=args.user_id)
+    result = svc.score_all_jobs()
+    logger.info(
+        f"Auto-score complete — "
+        f"scored: {result['scored']} | errors: {result['errors']}"
     )
