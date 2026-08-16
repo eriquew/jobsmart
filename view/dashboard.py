@@ -1,39 +1,39 @@
 import streamlit as st
 import pandas as pd
-import subprocess
 import sys
 import os
 from datetime import datetime
 
 from controller.job_service import JobService
-def run_pipeline(svc: JobService, keywords: str, location: str):
-    """Triggers pipeline run with custom keywords and location."""
 
-    with st.spinner(f"Fetching and scoring jobs — '{keywords}' in '{location}'..."):
-        result = subprocess.run(
-            [sys.executable, "controller/pipeline.py",
-             "--keywords", keywords,
-             "--location", location,
-             "--max", "25",
-             "--user_id", str(svc.user_id)],
-            capture_output=True, text=True, cwd=os.getcwd()
+
+def run_pipeline(svc: JobService, keywords: str, location: str):
+    """
+    Triggers pipeline run — calls pipeline directly in-process.
+    No subprocess — avoids conda environment inheritance issues.
+    """
+    from controller.pipeline import run_pipeline as pipeline_run
+    from model.database.db_connection import DatabaseConnection
+
+    with st.spinner(f"Fetching jobs — '{keywords}' in '{location}'..."):
+        pipeline_run(
+            keywords=keywords,
+            location=location,
+            max_results=25
         )
 
-    if result.returncode == 0:
-        st.success("Pipeline complete — refresh to see new jobs")
-    else:
-        st.warning("Pipeline finished with some errors")
-        if result.stderr:
-            with st.expander("Error details"):
-                st.code(result.stderr[-2000:])
+    with st.spinner("Scoring new jobs..."):
+        DatabaseConnection._instance = None
+        fresh_svc = JobService(user_id=svc.user_id)
+        result    = fresh_svc.score_all_jobs()
 
-    # Force session state reload
-    st.session_state.svc = JobService(user_id=svc.user_id)
+    st.success(f"Pipeline complete — {result['scored']} new jobs scored")
 
     import time
     time.sleep(1)
     st.rerun()
-    
+
+
 def score_badge(score: float) -> str:
     """Returns colored score badge."""
     if score >= 75:
